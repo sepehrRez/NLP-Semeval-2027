@@ -73,7 +73,7 @@
 \section{Introduction}
 % SemEval guidance: about one paragraph per point. Cite the task paper here.
 
-\todo{The task and why it matters: systems label an ordered pair of English phrases and must give compatible answers when the pair is swapped \citep{dico-nli-2027-task}, a reversal stress test inspired by the Reversal Curse \citep{berglund2024reversal}.}
+\todo{The task and why it matters: systems label an ordered pair of English phrases and must give compatible answers when the pair is swapped (cite \texttt{dico-nli-2027-task}), a reversal stress test inspired by the Reversal Curse (cite \texttt{berglund2024reversal}).}
 
 \todo{Your main strategy, in a few sentences.}
 
@@ -89,7 +89,7 @@ Our code is available at \url{https://github.com/sepehrRez/NLP-Semeval-2027}.
 % SemEval: describe the input, the output, the data (language, genre, size)
 % and the track you entered.
 
-\todo{Describe the task in your own words: the input, the four labels (Table~\ref{tab:labels}), where the phrases come from (image captions and news headlines from PhrasIS; \citealp{lopezgazpio2024phrasis}), the track (Track~1, English), and the data sizes (Table~\ref{tab:data}).}
+\todo{Describe the task in your own words: the input, the four labels (Table~\ref{tab:labels}), where the phrases come from (image captions and news headlines from PhrasIS), the track (Track~1, English), and the data sizes (Table~\ref{tab:data}).}
 
 \begin{table}[t]
   \centering
@@ -135,19 +135,28 @@ Let $f(x)$ be a system's prediction for instance $x$, $y$ its gold label, $x^{r}
 
 \subsection{Related Work}
 % Rubric: "a section created with decent effort summarizing prior work".
-% Group the work by theme and say how yours relates to each. All of these are in
-% custom.bib (the first group of entries comes from the organizers):
-%   Task lineage: \citet{lopezgazpio2017interpretable}, \citet{lopezgazpio2024phrasis},
-%                 the DiCo-NLI pilot \citet{apaolaza2026assessing}
-%   NLI:          \citet{maccartney2009natural}, \citet{bowman-etal-2015-large},
-%                 \citet{williams-etal-2018-broad}
-%   Shortcuts:    \citet{gururangan2018annotation}
-%   Reversal and consistency: \citet{berglund2024reversal}, \citet{golovneva2024reverse},
-%                 \citet{lin2024delving}, \citet{jang2022becel},
-%                 \citet{wu2025transitive}, \citet{blanck2026reverse}
-%   Evaluation:   \citet{lopez2024revisiting}
+% Group the work by theme and say how yours relates to each. A paper only shows
+% up in the References once you cite it. Keys of the 7 papers in custom.bib:
+%   DiCo-NLI pilot:   apaolaza2026assessing
+%   SemEval-2016 Interpretable STS: agirre-etal-2016-semeval-2016 (task paper),
+%                     lopez-gazpio-etal-2016-iubc, magnolini-etal-2016-fbk (systems)
+%   Consistency:      li-etal-2019-logic
+%   Shortcuts:        mccoy-etal-2019-right
+%   Reversal Curse:   berglund2024reversal
 
-\todo{Two to four paragraphs on prior work.}
+DiCo-NLI, the current task \citep{dico-nli-2027-task}, builds on the Interpretable Semantic Textual Similarity (iSTS) task at SemEval-2016 \citep{agirre-etal-2016-semeval-2016}, in which systems aligned chunks across two sentences and labeled each aligned pair with a relation type and a similarity score. Among the iSTS participants, iUBC \citep{lopez-gazpio-etal-2016-iubc} combined a recurrent neural network with a jointly trained classifier and regressor and achieved top performance on one of the three datasets, while FBK-HLT-NLP \citep{magnolini-etal-2016-fbk} used a single neural network to predict the chunk alignment, its relation type and its similarity score, and ranked first in one subtrack.
+
+A notable difference between the two tasks is that iSTS required participants to find the chunk pairs themselves, while DiCo-NLI provides them. Additionally, DiCo-NLI adds a directional requirement where equivalent or entailed pairs appear in both orders, so both predictions must be compatible. This new requirement is inspired by the Reversal Curse \citep{berglund2024reversal}, where language models trained on statements of the form ``A is B'' often fail to infer ``B is A''.
+
+In the pilot study for the DiCo-NLI task, \citet{apaolaza2026assessing} compared encoder-only, decoder-only and encoder-decoder models and found that fine-tuned encoders such as DeBERTa-v3 were the strongest across all all three scores, while decoder-only models were the weakest.
+
+High scores can often hide incorrect shortcuts the model has taken. To analyze this, \citet{mccoy-etal-2019-right} introduced HANS (Heuristic Analysis for NLI Systems), an evaluation set that tests whether NLI models rely on syntactic heuristics instead of the meaning they are meant to learn. Models trained on MultiNLI, including BERT, performed very poorly on it.
+
+Additionally, per-example scores such as F1 cannot capture inconsistency, where models sometimes do not follow logical rules, thus predicting logically related sentences inconsistently. \citet{li-etal-2019-logic} confirmed this problem and subsequently proposed a logic-driven framework that turns these rules into additional training losses.
+
+Unlike HANS, DiCo-NLI was not designed so that heuristics fail systematically, so its scores cannot show whether a model relies on syntactic heuristics rather than meaning. However, DiCo-NLI does directly measure inconsistency: SoftCons checks, for each reversible pair, whether the two answers are compatible with each other, even if both are wrong. This covers consistency when the phrases are reversed but misses other logical rules such as transitivity.
+
+\todo{Once the method and analysis are final, add how they relate to this work, e.g.\ whether we enforce consistency during training (like Li et al.) or at prediction time, and point to our shortcut analysis.}
 
 % -----------------------------------------------------------------------------
 \section{System Overview}
@@ -155,7 +164,7 @@ Let $f(x)$ be a system's prediction for instance $x$, $y$ its gold label, $x^{r}
 % re-implement your system.
 
 \subsection{Fine-tuned Encoders}
-\todo{The baseline from the organizers' starter kit: a pretrained encoder reads text1 and text2 as one input, and a classification head on the first token predicts one of the four labels. Name the encoders you compare, e.g.\ BERT \citep{devlin-etal-2019-bert}, RoBERTa \citep{liu2019roberta}, DeBERTaV3 \citep{he2023debertav3} and ModernBERT \citep{warner2024modernbert}.}
+\todo{The baseline from the organizers' starter kit: a pretrained encoder reads text1 and text2 as one input, and a classification head on the first token predicts one of the four labels. Name the encoders you compare, e.g.\ BERT, RoBERTa, DeBERTaV3 and ModernBERT.}
 
 \subsection{Consistency-Aware Inference}
 \todo{Your own method, with equations, and why it should help the consistency scores.}
@@ -172,7 +181,7 @@ Let $f(x)$ be a system's prediction for instance $x$, $y$ its gold label, $x^{r}
 
 \todo{Training details: optimizer, learning-rate schedule, batch size, epochs, and number of seeds (report mean $\pm$ standard deviation). Full values in Appendix~\ref{app:hyperparams}.}
 
-\todo{Hardware and software: Apple M4 GPU through PyTorch MPS, PyTorch \citep{paszke2019pytorch}, and Hugging Face Transformers \citep{wolf-etal-2020-transformers}, with versions and URLs in a footnote.}
+\todo{Hardware and software: Apple M4 GPU through PyTorch MPS, PyTorch and Hugging Face Transformers, with versions and URLs in a footnote.}
 
 \todo{The shared-task rules you followed: no PhrasIS data, no training on the trial data (it overlaps with dev), and no use of the data-file structure as a feature.}
 
@@ -259,7 +268,7 @@ Let $f(x)$ be a system's prediction for instance $x$, $y$ its gold label, $x^{r}
 % ACL asks authors to disclose AI assistance beyond minor polishing. Keep this
 % statement complete and accurate as the project continues.
 \section*{Acknowledgments}
-We used Claude Opus 5.5 (Anthropic), an AI assistant, through Claude Code to set up the software environment, adapt the organizers' starter kit to run on an Apple-Silicon GPU, draft a project plan, and create the \LaTeX{} skeleton of this paper.
+We used Claude Opus 5.5 (Anthropic), an AI assistant, through Claude Code to set up the software environment, adapt the organizers' starter kit to run on an Apple-Silicon GPU, draft a project plan, create the \LaTeX{} skeleton of this paper, and revise the Related Work section.
 \todo{Add any later AI use (code, analysis, writing), and thank anyone who helped.}
 
 \bibliography{custom}
