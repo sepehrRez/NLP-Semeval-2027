@@ -1,0 +1,300 @@
+\documentclass[11pt]{article}
+
+% =============================================================================
+% CSCI 5832 final report, written as a SemEval-2027 system description paper.
+%
+% Class requirements: LaTeX with the ACL template, 5-8 pages, submitted as PDF,
+% meeting the requirements of a real SemEval submission:
+%   https://semeval.github.io/paper-requirements.html
+%   https://semeval.github.io/system-paper-template.html
+%
+% Before submitting, check that:
+%   - The title follows "<Team name> at SemEval-2027 Task 2: <title>".
+%   - Author names and affiliations are filled in (SemEval papers are not anonymous).
+%   - The task paper is cited; swap the placeholder entry in custom.bib for the
+%     official BibTeX once the organizers release it.
+%   - The introduction states the data language (English) and gives the code URL.
+%   - Results cover several seeds, the baselines and ablations.
+%   - Every number in the paper comes from committed code and result files.
+%   - The AI-assistance statement in the Acknowledgments is complete.
+%   - No red [TODO] markers remain (search this file for "\todo").
+%   - The main text is 5-8 pages. In ACL style, references and appendices do not
+%     count towards the page limit; check how your instructor counts.
+% =============================================================================
+
+% "final" gives the camera-ready layout with author names. Do not use "review":
+% it hides the authors and adds line numbers, but SemEval papers are not anonymous.
+\usepackage[final]{acl}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{graphicx}
+
+% Added for this paper
+\usepackage{booktabs}  % \toprule, \midrule, \bottomrule
+\usepackage{amsmath}
+\usepackage{amssymb}   % \mathbb
+\usepackage{xcolor}
+
+% Visible placeholder: every \todo{...} prints in red in the PDF.
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+% Label abbreviations used in tables and text.
+\newcommand{\FWD}{\textsc{fwd}}
+\newcommand{\BWD}{\textsc{bwd}}
+\newcommand{\EQ}{\textsc{eq}}
+\newcommand{\NEG}{\textsc{neg}}
+
+% Replace TeamName with your team's name, and use a title that says what is
+% distinctive about your approach.
+\title{TeamName at SemEval-2027 Task 2: Descriptive Title of Your System}
+
+% Add co-authors with \And (different institution) or \and (same institution).
+\author{Victor Jimenez \\
+  University of Colorado Boulder \\
+  \texttt{viji2154@colorado.edu} \\\And
+  Sepehr Rezaei \\
+  University of Colorado Boulder \\
+  \texttt{sere8147@colorado.edu} \\}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\todo{Four to six sentences: the task, your approach, your main dev results (weighted F1, SoftCons, HardCons), and the main finding of your analysis.}
+\end{abstract}
+
+% -----------------------------------------------------------------------------
+\section{Introduction}
+% SemEval guidance: about one paragraph per point. Cite the task paper here.
+
+\todo{The task and why it matters: systems label an ordered pair of English phrases and must give compatible answers when the pair is swapped \citep{dico-nli-2027-task}, a reversal stress test inspired by the Reversal Curse \citep{berglund2024reversal}.}
+
+\todo{Your main strategy, in a few sentences.}
+
+\todo{Your key results, how they compare with the baselines, and what the analysis shows.}
+
+Our code is available at \url{https://github.com/sepehrRez/NLP-Semeval-2027}.
+\todo{Make sure the repository is public before submitting.}
+
+% -----------------------------------------------------------------------------
+\section{Background}
+
+\subsection{Task and Data}
+% SemEval: describe the input, the output, the data (language, genre, size)
+% and the track you entered.
+
+\todo{Describe the task in your own words: the input, the four labels (Table~\ref{tab:labels}), where the phrases come from (image captions and news headlines from PhrasIS; \citealp{lopezgazpio2024phrasis}), the track (Track~1, English), and the data sizes (Table~\ref{tab:data}).}
+
+\begin{table}[t]
+  \centering
+  \small
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Label} & \textbf{Rev} & \textbf{Example (text1 $\rightarrow$ text2)} \\
+    \midrule
+    \FWD & \BWD & \textit{ballistic missiles} $\rightarrow$ \textit{missiles} \\
+    \BWD & \FWD & \textit{missiles} $\rightarrow$ \textit{ballistic missiles} \\
+    \EQ  & \EQ  & \textit{flying} $\rightarrow$ \textit{in flight} \\
+    \NEG & --   & \textit{a dog} $\rightarrow$ \textit{the skateboarder} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Labels, their reversal (Rev) when text1 and text2 are swapped, and examples from the training data. \FWD{} = forward entailment, \BWD{} = backward entailment, \EQ{} = equivalence, \NEG{} = negative/other. \NEG{} items are excluded from the consistency scores.}
+  \label{tab:labels}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    \textbf{Split} & \FWD & \BWD & \EQ & \NEG & \textbf{Total} & \textbf{Pairs} \\
+    \midrule
+    Train & 881 & 881 & 802 & 478 & 3{,}042 & 1{,}282 \\
+    Dev   & 190 & 190 & 174 & 106 & 660     & 277 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Track~1 instances per label. Pairs: reversible source pairs, which appear in both directions and count towards SoftCons and HardCons.}
+  \label{tab:data}
+\end{table}
+
+\subsection{Evaluation}
+
+Let $f(x)$ be a system's prediction for instance $x$, $y$ its gold label, $x^{r}$ the same pair in the opposite direction, and $\mathrm{Rev}$ the reversal map in Table~\ref{tab:labels}. With sums over the $N$ reversible pairs $(x, x^{r})$ \citep{dico-nli-2027-task}:
+\begin{align}
+  \mathrm{SoftCons} &= \frac{1}{N} \sum \mathbb{I}\big[ f(x) = \mathrm{Rev}(f(x^{r})) \big] \\
+  \mathrm{HardCons} &= \frac{1}{N} \sum \mathbb{I}\big[ f(x) = y \wedge f(x^{r}) = y^{r} \big]
+\end{align}
+
+\todo{Explain in your own words what each score captures, and that weighted F1 is computed over all four labels.}
+
+\subsection{Related Work}
+% Rubric: "a section created with decent effort summarizing prior work".
+% Group the work by theme and say how yours relates to each. All of these are in
+% custom.bib (the first group of entries comes from the organizers):
+%   Task lineage: \citet{lopezgazpio2017interpretable}, \citet{lopezgazpio2024phrasis},
+%                 the DiCo-NLI pilot \citet{apaolaza2026assessing}
+%   NLI:          \citet{maccartney2009natural}, \citet{bowman-etal-2015-large},
+%                 \citet{williams-etal-2018-broad}
+%   Shortcuts:    \citet{gururangan2018annotation}
+%   Reversal and consistency: \citet{berglund2024reversal}, \citet{golovneva2024reverse},
+%                 \citet{lin2024delving}, \citet{jang2022becel},
+%                 \citet{wu2025transitive}, \citet{blanck2026reverse}
+%   Evaluation:   \citet{lopez2024revisiting}
+
+\todo{Two to four paragraphs on prior work.}
+
+% -----------------------------------------------------------------------------
+\section{System Overview}
+% SemEval: usually the longest section. Give enough detail that a reader could
+% re-implement your system.
+
+\subsection{Fine-tuned Encoders}
+\todo{The baseline from the organizers' starter kit: a pretrained encoder reads text1 and text2 as one input, and a classification head on the first token predicts one of the four labels. Name the encoders you compare, e.g.\ BERT \citep{devlin-etal-2019-bert}, RoBERTa \citep{liu2019roberta}, DeBERTaV3 \citep{he2023debertav3} and ModernBERT \citep{warner2024modernbert}.}
+
+\subsection{Consistency-Aware Inference}
+\todo{Your own method, with equations, and why it should help the consistency scores.}
+
+\subsection{Additional Systems}
+\todo{Optional, e.g.\ an LLM prompted zero- or few-shot. The full prompt goes in Appendix~\ref{app:prompts}.}
+
+% -----------------------------------------------------------------------------
+\section{Experimental Setup}
+% SemEval: data splits, preprocessing, hyperparameter tuning, external tools
+% (versions and URLs in a footnote), and evaluation measures.
+
+\todo{Data splits: hold out part of train as a validation set, grouped by \texttt{pair\_id} so both directions of a pair stay together. Tune and pick epochs on it, and evaluate on the official dev set only at the end. The official test set is not released until January 2027.}
+
+\todo{Training details: optimizer, learning-rate schedule, batch size, epochs, and number of seeds (report mean $\pm$ standard deviation). Full values in Appendix~\ref{app:hyperparams}.}
+
+\todo{Hardware and software: Apple M4 GPU through PyTorch MPS, PyTorch \citep{paszke2019pytorch}, and Hugging Face Transformers \citep{wolf-etal-2020-transformers}, with versions and URLs in a footnote.}
+
+\todo{The shared-task rules you followed: no PhrasIS data, no training on the trial data (it overlaps with dev), and no use of the data-file structure as a feature.}
+
+% -----------------------------------------------------------------------------
+\section{Results}
+
+\todo{Describe the main results (Table~\ref{tab:main}) and the ablations (Table~\ref{tab:ablation}): which models do best, and what the consistency scores show beyond F1.}
+
+% Full page width (table*) leaves room for "mean ± std" in every cell.
+\begin{table*}[t]
+  \centering
+  \small
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{System} & \textbf{W-F1} & \textbf{SoftCons} & \textbf{HardCons} \\
+    \midrule
+    \multicolumn{4}{@{}l}{\textit{Baselines}} \\
+    Majority class                 & -- & -- & -- \\
+    Longer phrase entails shorter  & -- & -- & -- \\
+    \midrule
+    \multicolumn{4}{@{}l}{\textit{Fine-tuned encoders}} \\
+    BERT-base        & -- & -- & -- \\
+    RoBERTa-base     & -- & -- & -- \\
+    DeBERTa-v3-base  & -- & -- & -- \\
+    ModernBERT-base  & -- & -- & -- \\
+    \midrule
+    \multicolumn{4}{@{}l}{\textit{Our system}} \\
+    \todo{name}      & -- & -- & -- \\
+    \bottomrule
+  \end{tabular}
+  \caption{Track~1 dev results, mean $\pm$ standard deviation over \todo{N} seeds. W-F1: weighted F1.}
+  \label{tab:main}
+\end{table*}
+
+\begin{table}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{Variant} & \textbf{W-F1} & \textbf{SoftCons} & \textbf{HardCons} \\
+    \midrule
+    Full system                       & -- & -- & -- \\
+    \quad $-$ \todo{component}        & -- & -- & -- \\
+    \quad $-$ \todo{component}        & -- & -- & -- \\
+    \bottomrule
+  \end{tabular}
+  \caption{Ablations on Track~1 dev. Each row removes one component from the full system.}
+  \label{tab:ablation}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\section{Analysis}
+% Rubric: 20 points for analysing the results (error analysis, follow-up
+% experiments). SemEval: "analysis of your system's behavior beyond the overall scores".
+
+\subsection{Error Analysis}
+\todo{Per-label scores and the confusion matrix (Figure~\ref{fig:confusion}): which labels get confused, and how often the direction is wrong.}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{example-image-golden}
+  \caption{\todo{Confusion matrix of your best system on dev; replace the placeholder image.}}
+  \label{fig:confusion}
+\end{figure}
+
+\subsection{Consistency Failures}
+\todo{Which pairs get incompatible answers in the two directions, and why.}
+
+\subsection{Shortcuts}
+\todo{How often each system agrees with the ``longer phrase entails the shorter one'' heuristic, and where it does better (e.g.\ numbers, names, paraphrases).}
+
+\subsection{Manual Inspection}
+\todo{Categorize about 50 errors by hand and report the categories, with examples.}
+
+% -----------------------------------------------------------------------------
+\section{Conclusion}
+\todo{A few sentences: what you built, what you found, and future work.}
+
+% Standard in ACL papers; it does not count towards the page limit.
+\section*{Limitations}
+\todo{E.g.\ English only, results on the dev set rather than the official test set, a single hardware setup, and the size of the training data.}
+
+% ACL asks authors to disclose AI assistance beyond minor polishing. Keep this
+% statement complete and accurate as the project continues.
+\section*{Acknowledgments}
+We used Claude Opus 5.5 (Anthropic), an AI assistant, through Claude Code to set up the software environment, adapt the organizers' starter kit to run on an Apple-Silicon GPU, draft a project plan, and create the \LaTeX{} skeleton of this paper.
+\todo{Add any later AI use (code, analysis, writing), and thank anyone who helped.}
+
+\bibliography{custom}
+
+\appendix
+
+\section{Hyperparameters}
+\label{app:hyperparams}
+
+\todo{Search space and selected values for each model (Table~\ref{tab:hyperparams}).}
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Hyperparameter} & \textbf{Search space} & \textbf{Selected} \\
+    \midrule
+    Learning rate          & -- & -- \\
+    Batch size             & -- & -- \\
+    Epochs                 & -- & -- \\
+    Warmup ratio           & -- & -- \\
+    Weight decay           & -- & -- \\
+    Dropout                & -- & -- \\
+    Max.\ sequence length  & -- & -- \\
+    Seeds                  & -- & -- \\
+    \bottomrule
+  \end{tabular}
+  \caption{Hyperparameters for \todo{model}.}
+  \label{tab:hyperparams}
+\end{table}
+
+\section{Prompts}
+\label{app:prompts}
+
+\todo{Only if you use an LLM: the exact prompt(s) and decoding settings.}
+
+\end{document}
