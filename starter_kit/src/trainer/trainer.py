@@ -54,13 +54,14 @@ class Trainer:
         self.params.setdefault("optuna", None)
         self.params.setdefault("results_dir", "results")
         self.params.setdefault("reference_path", None)
+        self.params.setdefault("device", "auto")
         print(self.params)
 
         # Set seeds for reproducibility
         self.g: torch.Generator = self.set_seed()
 
-        # Cuda configuration
-        self.device: torch.device = self.configure_cuda()
+        # Device configuration (CUDA > Apple-Silicon MPS > CPU unless --device is given)
+        self.device: torch.device = self.configure_device()
 
         # Load dico datasets
         if params["do_train"]:
@@ -130,16 +131,27 @@ class Trainer:
         os.environ["ASCEND_LAUNCH_BLOCKING"] = "1"
         os.environ["HCCL_DETERMINISTIC"] = "1"
         os.environ["FLASH_ATTENTION_DETERMINISTIC"] = "1"
-        torch.use_deterministic_algorithms(True)
+        # MPS has no deterministic kernels for some ops every model needs (e.g. embedding backward), so on Apple Silicon warn instead of raising.
+        torch.use_deterministic_algorithms(True, warn_only=self.resolve_device_type() == "mps")
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         g = torch.Generator()
         g.manual_seed(seed)
         return g
 
-    def configure_cuda(self) -> torch.device:
-        cuda: bool = torch.cuda.is_available()
-        device: torch.device = torch.device("cuda" if cuda else "cpu")
+    def resolve_device_type(self) -> str:
+        requested = str(self.params["device"])
+        if requested != "auto":
+            return requested
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+
+    def configure_device(self) -> torch.device:
+        device: torch.device = torch.device(self.resolve_device_type())
+        cuda: bool = device.type == "cuda"
         print("\nRunning on device: {}".format(device))
         if cuda:
             print("CUDA device count: {}".format(torch.cuda.device_count()))
@@ -177,6 +189,9 @@ class Trainer:
             weight_decay=weight_decay,
             betas=(0.9, 0.999),
             eps=1e-6,
+            # Single-kernel AdamW: halves the optimizer step on Apple Silicon.
+            # Other devices keep PyTorch's default implementation.
+            fused=True if self.device.type == "mps" else None,
         )
 
         train_data_len: int = len(self.train_dataloader)

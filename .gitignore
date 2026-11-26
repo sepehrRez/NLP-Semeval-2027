@@ -219,3 +219,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local experiment outputs: prediction CSVs, official scores, checkpoints,
+# Optuna DBs. Use `git add -f` for anything worth keeping (e.g. final runs).
+starter_kit/results/*
+!starter_kit/results/.gitkeep
+
+# venv name suggested in starter_kit/README.md (uv uses .venv, ignored above)
+dicoNLI/

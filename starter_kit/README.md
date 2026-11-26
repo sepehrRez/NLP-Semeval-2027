@@ -44,6 +44,41 @@ To leave the environment:
 deactivate
 ```
 
+### Apple Silicon (M-series Mac) with uv
+
+The repository root has a `pyproject.toml` and `uv.lock` for
+[uv](https://docs.astral.sh/uv/). They pin Python 3.12, current PyTorch (with
+the Metal/MPS backend), transformers, and MLX. From the repository root:
+
+```bash
+uv sync                      # creates .venv (VS Code picks it up automatically)
+cd starter_kit
+./run_track1.sh              # DeBERTa-v3-base: train on Track 1 train, official scores on dev every epoch
+./run_track1.sh answerdotai/ModernBERT-base
+EPOCHS=3 LR=3e-5 BS=32 ./run_track1.sh   # see the header of run_track1.sh for all options
+```
+
+Install uv with the ARM Homebrew (`/opt/homebrew/bin/brew install uv`). An
+Intel Homebrew under Rosetta (`/usr/local/bin/brew`) installs x86_64 binaries,
+which cannot use the GPU. To check, run:
+`uv run python -c "import platform, torch; print(platform.machine(), torch.backends.mps.is_available())"`.
+The output should be `arm64 True`.
+
+Notes on the Mac changes to the trainer:
+
+- The device is chosen automatically: CUDA, then MPS, then CPU. Use
+  `--device` to override it.
+- On MPS, `torch.use_deterministic_algorithms` warns instead of raising, because
+  Metal has no deterministic kernel for embedding backward. DeBERTa-v3 runs still
+  repeat to about 1e-7. ModernBERT runs do not repeat exactly. Compare models
+  over several seeds.
+- Models are always trained in fp32. transformers 5 would otherwise load
+  DeBERTa-v3 in its stored fp16.
+- Pairs are padded to the longest pair in the dataset (about 30 tokens), not to
+  `--max_length`, which now only caps truncation.
+- MPS uses fused AdamW. Ops without a Metal kernel fall back to the CPU
+  (`PYTORCH_ENABLE_MPS_FALLBACK=1`).
+
 ---
 
 ## DiCo-NLI Starter Kit Usage

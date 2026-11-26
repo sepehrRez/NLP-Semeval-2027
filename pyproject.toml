@@ -1,0 +1,28 @@
+[project]
+name = "nlp-semeval-2027"
+version = "0.1.0"
+description = "Team workspace for SemEval-2027 Task 2 (DiCo-NLI)"
+requires-python = ">=3.12"
+dependencies = [
+    # starter_kit/requirements.txt, relaxed to current releases. Newer torch
+    # has far better Apple-Silicon (MPS) coverage than the pinned 2.4.1.
+    "torch>=2.6",
+    "transformers>=4.48.3",
+    "sentencepiece>=0.2.0",
+    "protobuf>=5.29.3",
+    "numpy>=1.26.4",
+    "pandas>=2.2.2",
+    "scikit-learn>=1.5.2",
+    "optuna>=4.1.0",
+    "tqdm>=4.67.1",
+    # Apple-Silicon-native array framework + LLM tooling (generation, LoRA
+    # fine-tuning) that runs on the Metal GPU with unified memory.
+    "mlx-lm>=0.20; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
+[dependency-groups]
+dev = ["ipykernel"]
+
+[tool.uv]
+# This repo is a workspace of scripts, not an installable package.
+package = false

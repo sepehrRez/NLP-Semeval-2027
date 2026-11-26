@@ -1,7 +1,11 @@
+import os
+
+# Apple Silicon: run any op that lacks a Metal kernel on the CPU instead of crashing. Must be set before torch is imported.
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
 from typing import Union, Dict
 import argparse
 from src.trainer.trainer import Trainer
-import os
 import torch
 import optuna
 import gc
@@ -21,6 +25,8 @@ def objective(trial: optuna.trial.Trial, params: Dict[str, Union[str, int, float
     score = trainer.evaluation_loop(partition="dev", print_results=False)["f1_weighted"]
     gc.collect()
     torch.cuda.empty_cache()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
     return score
 
 
@@ -55,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--epoch_to_stop", type=int, help="Epoch number to stop training in case intermediate saving is desired.")
     parser.add_argument("--results_dir", type=str, default="results", help="Directory where timestamped prediction CSV files will be written.")
     parser.add_argument("--reference_path", type=str, help="Optional hidden reference CSV for official DiCo-NLI scoring.")
+    parser.add_argument("--device", type=str, default="auto", choices=["auto", "cuda", "mps", "cpu"], help="Compute device. 'auto' picks CUDA, then Apple-Silicon MPS, then CPU.")
 
     args = parser.parse_args()
 
@@ -127,6 +134,7 @@ if __name__ == "__main__":
         "results_dir": args.results_dir,
         "reference_path": args.reference_path,
         "max_length": args.max_length,
+        "device": args.device,
     }
     
     if args.is_optuna_trial:

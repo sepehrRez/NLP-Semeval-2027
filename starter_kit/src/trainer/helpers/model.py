@@ -43,6 +43,7 @@ class Model:
             pretrained_model_name_or_path=str(params["model_path"]),
             config=self.config,
         )
+        self.model.float()
 
         # For pythia
         if not self.tokenizer.pad_token:
@@ -75,10 +76,11 @@ class Model:
         texts_first: np.ndarray
         texts_second: np.ndarray
 
+        # Pad to the longest pair in the dataset (~30 tokens for these phrases) rather than to max_length.
         encs: BatchEncoding = self.tokenizer(
             list(texts_first),
             list(texts_second),
-            padding="max_length",
+            padding="longest",
             truncation="only_second",
             return_tensors="pt",
             max_length=self.max_length,
